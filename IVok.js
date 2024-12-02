@@ -1,24 +1,124 @@
+//INICIALIZADOR  -------------------------------------------------------------->
+
 // Llamado para inicializar el contenido con los controles
 document.addEventListener('DOMContentLoaded', function () {
+
     const observer = new MutationObserver(() => {
         const iframe = document.querySelector('iframe');
+
         if (iframe && iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+
             observer.disconnect();
-            addSubtitleStyles(iframe.contentDocument);
-            initializeH5PContentWithControls(iframe.contentDocument);
+
+            // Verificamos el tipo de recurso (IV o CP)
+            const resourceType = identifyResourceType(iframe.contentDocument);
+            switch (resourceType) {
+                
+                case 'CP':
+                    initializeCoursePresentation(iframe.contentDocument);
+                    break;
+                
+                case 'IV':
+                    initializeInteractiveVideo(iframe.contentDocument);
+                    break;
+                default:
+                    console.log("Recurso no identificado.");
+                    break;
+            }
+        } else {
+            console.log("El iframe aún no está completamente cargado.");
         }
     });
+
     observer.observe(document.body, { childList: true, subtree: true });
 });
+
+// Identifica el tipo de recurso dentro del iframe (IV o CP)
+function identifyResourceType(iframeDocument) {
+    if (iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-interactive-video')) {
+        console.log("Recurso INTERACTIVE VIDEO");
+        return 'IV';
+    } 
+    else if (iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-course-presentation')) {
+        console.log("Recurso COURSE PRESENTATION");
+        return 'CP';
+    }
+    return null;
+}
+
+
+//FUNCIONES DEL INTERACTIVE VIDEO --------------------------------------------->
+
+// Inicializa el Interactive Video
+function initializeInteractiveVideo(iframeDocument) {
+    addSubtitleStyles(iframeDocument);
+
+    const elements = identifyVideoAndTrackElements(iframeDocument);
+
+    if (elements) {
+        const mainContainer = createMainContainer(iframeDocument);
+        const { sectionA, sectionB } = createFlexboxSections(mainContainer, iframeDocument);
+        placeResourcesInSections(sectionA, sectionB, elements.interactiveVideoContainer, elements.trackElement);
+
+        // Ajustar altura de sectionB al cargar el contenido
+        adjustSectionBHeight(sectionA, sectionB);
+
+        // Configuración del modo de pantalla completa
+        setupFullscreenBehavior(iframeDocument, sectionA, sectionB);
+
+        // Configuración del menú de subtítulos
+        setupSubtitleMenu(iframeDocument, sectionA, sectionB);
+    } else {
+        console.warn("No se pudieron inicializar elementos del Interactive Video.");
+    }
+}
+
+// Inicializar y personlizar el menú de subtítulos en el IV
+function setupSubtitleMenu(iframeDocument, sectionA, sectionB) {
+    const controlsContainer = iframeDocument.querySelector('.h5p-controls');
+
+    if (!controlsContainer) {
+        console.warn('[setupSubtitleMenu] Contenedor de controles no encontrado.');
+        return;
+    }
+
+    const observer = new MutationObserver(() => {
+        const captionsButton = controlsContainer.querySelector('.h5p-control.h5p-captions');
+
+        if (captionsButton) {
+            observer.disconnect(); // Detener observación cuando el botón esté disponible
+            captionsButton.click();
+
+            const captionsMenu = iframeDocument.querySelector('.h5p-chooser.h5p-captions ol');
+            if (captionsMenu) {
+                createTranscriptionAndFontSizeOptions(iframeDocument, captionsMenu, sectionA, sectionB);
+            } else {
+                console.warn('[setupSubtitleMenu] Menú de subtítulos no encontrado.');
+            }
+        } else {
+            console.warn('[setupSubtitleMenu] Botón de subtítulos aún no disponible. Observando DOM...');
+        }
+    });
+
+    observer.observe(controlsContainer, { childList: true, subtree: true });
+}
 
 // Identifica el contenedor de video y el elemento <track> dentro del iframe H5P
 function identifyVideoAndTrackElements(iframeDocument) {
     const interactiveVideoContainer = iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-interactive-video');
     const trackElement = iframeDocument.querySelector('track');
-    
+
+    if (!interactiveVideoContainer) {
+        console.warn('[identifyVideoAndTrackElements] Contenedor de video no encontrado.');
+    }
+
+    if (!trackElement) {
+        console.warn('[identifyVideoAndTrackElements] Elemento <track> no encontrado.');
+    }
+
     return (interactiveVideoContainer && trackElement) 
         ? { interactiveVideoContainer, trackElement } 
-        : (console.warn("No se encontró el contenedor de video o el elemento <track>."), null);
+        : null;
 }
 
 // Creación de contenedor principal y flex
@@ -150,10 +250,12 @@ function toggleTranscriptionVisibility(sectionA, sectionB, transcriptionOption) 
     const isVisible = sectionB.style.display === 'none';
     sectionB.style.display = isVisible ? 'block' : 'none';
 
-    // Controlar el tamaño de sectionA en móvil
     const isMobile = window.innerWidth <= 768;
-    if (isMobile) {
-        sectionA.style.height = isVisible ? '70%' : '100%';
+    const videoElement = sectionA.querySelector('video');
+
+    if (isMobile && videoElement) {
+        const videoHeight = videoElement.clientHeight || 0;
+        sectionA.style.height = isVisible ? `${videoHeight}px` : '100%';
     } else {
         sectionA.style.width = isVisible ? '66.66%' : '100%';
     }
@@ -161,7 +263,6 @@ function toggleTranscriptionVisibility(sectionA, sectionB, transcriptionOption) 
     transcriptionOption.setAttribute('aria-checked', isVisible.toString());
     console.log(`[toggleTranscriptionVisibility] Transcripción ${isVisible ? 'activada' : 'desactivada'}.`);
 }
-
 
 // Ajusta el tamaño de la fuente en la sección de transcripción
 function adjustFontSize(size, sectionB, limit) {
@@ -220,6 +321,7 @@ function addTimeUpdateEvent(videoElement, captions, sectionB) {
             if (currentTime >= caption.start && currentTime <= caption.end) {
                 captionElement.classList.add('highlighted');
 
+                // Aquí se centra el scroll para mostrar el subtítulo actual
                 sectionB.scrollTo({
                     top: captionElement.offsetTop - sectionB.clientHeight / 2 + captionElement.clientHeight / 2,
                     behavior: 'smooth'
@@ -290,6 +392,8 @@ function addSubtitleStyles(iframeDocument) {
             background-color: #f0f0f0;
             box-sizing: border-box;
             padding: 10px;
+            position: relative; /* Asegura que sectionA tenga contexto para posicionamiento */
+            z-index: 1; /* Aparece encima */
         }
         .section-b {
             width: 33.33%;
@@ -297,7 +401,9 @@ function addSubtitleStyles(iframeDocument) {
             background: #FFFFFF;
             padding: 10px;
             overflow-y: auto;
-            display: none;
+            display: none; /* Oculto por defecto */
+            position: relative; /* Evita que se superponga */
+            z-index: 0; /* Aparece debajo */
         }
         .list-item {
             display: flex;
@@ -332,23 +438,21 @@ function addSubtitleStyles(iframeDocument) {
         /* Estilos responsivos para pantallas pequeñas */
         @media (max-width: 768px) {
             .flex-container {
-                flex-direction: column; /* Cambiar a columna */
+                flex-direction: column; /* Cambiar a dirección vertical */
             }
             .section-a {
                 width: 100%;
-                height: 70%; /* Altura fija para video */
+                height: auto; /* Se ajusta al contenido del video */
             }
             .section-b {
                 width: 100%;
                 height: auto;
-                max-height: 30%; /* Altura máxima para transcripción */
-                overflow-y: auto;
-                display: block; /* Siempre visible en móvil */
+                display: block; /* Asegura visibilidad */
+                margin-top: 10px; /* Espaciado para evitar solapamiento */
             }
         }
     `;
     iframeDocument.head.appendChild(style);
-    console.log('[addSubtitleStyles] Estilos de subtítulos agregados.');
 }
 
 // Función de configuración para pantalla completa
@@ -359,12 +463,10 @@ function setupFullscreenBehavior(iframeDocument, sectionA, sectionB) {
         const flexContainer = iframeDocument.querySelector('.flex-container');
 
         if (fullscreenButton && mainContainer && sectionA && sectionB && flexContainer) {
-            console.log("Todos los elementos necesarios encontrados, configurando pantalla completa.");
             observer.disconnect();
 
             fullscreenButton.addEventListener('click', () => {
                 const isFullscreen = !document.fullscreenElement;
-
                 if (isFullscreen) {
                     mainContainer.requestFullscreen()
                         .then(() => {
@@ -372,8 +474,7 @@ function setupFullscreenBehavior(iframeDocument, sectionA, sectionB) {
                             mainContainer.style.height = '100vh';
                             mainContainer.style.display = 'flex';
                             flexContainer.style.height = '100%';
-
-                            adjustSectionBHeight(sectionA, sectionB); // Ajustar altura en pantalla completa
+                            adjustSectionBHeight(sectionA, sectionB);
                         })
                         .catch(err => console.warn("Error al activar pantalla completa:", err));
                 } else {
@@ -383,52 +484,97 @@ function setupFullscreenBehavior(iframeDocument, sectionA, sectionB) {
                             mainContainer.style.height = '';
                             mainContainer.style.display = '';
                             flexContainer.style.height = '';
-
-                            adjustSectionBHeight(sectionA, sectionB); // Restablecer altura al salir
+                            adjustSectionBHeight(sectionA, sectionB);
                         })
                         .catch(err => console.warn("Error al salir de pantalla completa:", err));
                 }
             });
-
-            // Ajuste de altura en cambios de tamaño de ventana y salida de pantalla completa
-            window.addEventListener('resize', () => adjustSectionBHeight(sectionA, sectionB));
-            document.addEventListener('fullscreenchange', () => {
-                if (!document.fullscreenElement) {
-                    mainContainer.style.width = '';
-                    mainContainer.style.height = '';
-                    mainContainer.style.display = '';
-                    flexContainer.style.height = '';
-
-                    adjustSectionBHeight(sectionA, sectionB); // Ajuste de altura al salir de pantalla completa
-                }
-            });
         } else {
-            if (!fullscreenButton) console.warn("Esperando el botón de pantalla completa.");
-            if (!mainContainer) console.warn("Esperando el contenedor principal ('#main-flex-container').");
-            if (!sectionA) console.warn("Esperando la sección A ('.section-a').");
-            if (!sectionB) console.warn("Esperando la sección B ('.section-b').");
-            if (!flexContainer) console.warn("Esperando el contenedor flex ('.flex-container').");
+            console.warn('[setupFullscreenBehavior] Elementos necesarios no encontrados. Observando DOM...');
         }
     });
 
     observer.observe(iframeDocument.body, { childList: true, subtree: true });
 }
 
+// Ajuste dinámico de la altura de la sectionA
+function adjustSectionAHeightToVideo(sectionA) {
+    const videoElement = sectionA.querySelector('video');
+    if (videoElement) {
+        const videoHeight = videoElement.clientHeight || videoElement.offsetHeight;
+        sectionA.style.height = `${videoHeight}px`;
+    } else {
+        console.warn('[adjustSectionAHeightToVideo] Elemento <video> no encontrado en sectionA.');
+    }
+}
+
 // Ajusta dinámicamente las alturas para vista móvil o de escritorio
+function adjustSectionAHeightToVideo(sectionA) {
+    const videoElement = sectionA.querySelector('video');
+    if (videoElement) {
+        const videoHeight = videoElement.clientHeight || videoElement.offsetHeight;
+        sectionA.style.height = `${videoHeight}px`;
+    } else {
+        console.warn('[adjustSectionAHeightToVideo] Elemento <video> no encontrado en sectionA.');
+    }
+}
+
+// Ajusta la altura al cambiar el tamaño de la ventana
 function adjustSectionBHeight(sectionA, sectionB) {
     const isMobile = window.innerWidth <= 768;
-    if (isMobile) {
-        sectionA.style.height = '60%';
-        sectionB.style.height = '40%';
+    const videoElement = sectionA.querySelector('video');
+    const transcriptionVisible = sectionB.style.display !== 'none';
+
+    if (isMobile && videoElement) {
+        adjustSectionAHeightToVideo(sectionA, videoElement, transcriptionVisible);
     } else {
+        // Ajustes para pantallas grandes
         const sectionAHeight = sectionA.clientHeight;
         sectionB.style.height = `${sectionAHeight}px`;
     }
 }
 
+//FUNCIONES DEL COURSE PRESENTATION  ------------------------------------------>
+
+//inicializar Course presentation
+function initializeCoursePresentation(iframeDocument) {
+    console.log("Inicializando Course Presentation.");
+    const elements = identifyCoursePresentationElements(iframeDocument);
+
+    if (elements) {
+        const mainContainer = createMainContainer(iframeDocument);
+        const { sectionA, sectionB } = createFlexboxSections(mainContainer, iframeDocument);
+
+        // Configura los elementos específicos de Course Presentation
+        sectionA.appendChild(elements.coursePresentationContainer);
+        sectionB.textContent = "Aquí se pueden agregar elementos adicionales o subtítulos para el Course Presentation.";
+
+        adjustSectionBHeight(sectionA, sectionB);
+    } else {
+        console.warn("No se pudieron inicializar elementos de Course Presentation.");
+    }
+}
+
+// Función que verifica si el recurso cargado es un paquete CP (Content Package)
+function checkIfCP(contentDoc) {
+    console.log("Verificando si el contenido es un paquete CP...");
+
+    const body = contentDoc.querySelector('body');
+    
+    if (body) {
+        console.log ("body del CP identificado");
+    }else{
 
 
+    console.danger("Paila mi SO, ya per... ");
+}
+}
 
-
-
+//identificar elementos del CP
+function identifyCoursePresentationElements(iframeDocument) {
+    const coursePresentationContainer = iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-course-presentation');
+    return coursePresentationContainer 
+        ? { coursePresentationContainer } 
+        : (console.warn("No se encontró el contenedor de Course Presentation."), null);
+}
 
