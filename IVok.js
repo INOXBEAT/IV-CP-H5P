@@ -75,28 +75,40 @@ function initializeInteractiveVideo(iframeDocument) {
 
 // Inicializar y personlizar el menú de subtítulos en el IV
 function setupSubtitleMenu(iframeDocument, sectionA, sectionB) {
-    const controlsContainer = iframeDocument.querySelector('.h5p-controls');
+    console.log('[setupSubtitleMenu] Iniciando configuración del menú de subtítulos.');
 
+    const controlsContainer = iframeDocument.querySelector('.h5p-controls');
     if (!controlsContainer) {
-        console.warn('[setupSubtitleMenu] Contenedor de controles no encontrado.');
+        console.error('[setupSubtitleMenu] Contenedor de controles no encontrado.');
         return;
     }
 
+    console.log('[setupSubtitleMenu] Contenedor de controles encontrado. Observando cambios.');
+
     const observer = new MutationObserver(() => {
+        console.log('[setupSubtitleMenu] Observando cambios en los controles.');
+
         const captionsButton = controlsContainer.querySelector('.h5p-control.h5p-captions');
-
         if (captionsButton) {
-            observer.disconnect(); // Detener observación cuando el botón esté disponible
-            captionsButton.click();
+            console.log('[setupSubtitleMenu] Botón de subtítulos encontrado:', captionsButton);
 
-            const captionsMenu = iframeDocument.querySelector('.h5p-chooser.h5p-captions ol');
-            if (captionsMenu) {
-                createTranscriptionAndFontSizeOptions(iframeDocument, captionsMenu, sectionA, sectionB);
-            } else {
-                console.warn('[setupSubtitleMenu] Menú de subtítulos no encontrado.');
-            }
+            observer.disconnect(); // Detenemos la observación porque el botón ya está disponible
+            captionsButton.click(); // Simulamos un clic para mostrar el menú de subtítulos
+            console.log('[setupSubtitleMenu] Botón de subtítulos clickeado para activar el menú.');
+
+            // Intentamos encontrar el menú después de un clic
+            const checkMenu = setInterval(() => {
+                const captionsMenu = iframeDocument.querySelector('.h5p-chooser.h5p-captions ol');
+                if (captionsMenu) {
+                    console.log('[setupSubtitleMenu] Menú de subtítulos encontrado:', captionsMenu);
+                    clearInterval(checkMenu); // Detenemos el intervalo
+                    createTranscriptionAndFontSizeOptions(iframeDocument, captionsMenu, sectionA, sectionB);
+                } else {
+                    console.warn('[setupSubtitleMenu] Menú de subtítulos no encontrado. Intentando nuevamente...');
+                }
+            }, 500); // Revisamos cada 500ms para confirmar si el menú se generó.
         } else {
-            console.warn('[setupSubtitleMenu] Botón de subtítulos aún no disponible. Observando DOM...');
+            console.warn('[setupSubtitleMenu] Botón de subtítulos no disponible aún. Continuamos observando.');
         }
     });
 
@@ -462,39 +474,83 @@ function setupFullscreenBehavior(iframeDocument, sectionA, sectionB) {
         const mainContainer = iframeDocument.querySelector('#main-flex-container');
         const flexContainer = iframeDocument.querySelector('.flex-container');
 
-        if (fullscreenButton && mainContainer && sectionA && sectionB && flexContainer) {
+        if (fullscreenButton && mainContainer && flexContainer) {
             observer.disconnect();
 
             fullscreenButton.addEventListener('click', () => {
-                const isFullscreen = !document.fullscreenElement;
-                if (isFullscreen) {
-                    mainContainer.requestFullscreen()
-                        .then(() => {
-                            mainContainer.style.width = '100vw';
-                            mainContainer.style.height = '100vh';
-                            mainContainer.style.display = 'flex';
-                            flexContainer.style.height = '100%';
-                            adjustSectionBHeight(sectionA, sectionB);
-                        })
-                        .catch(err => console.warn("Error al activar pantalla completa:", err));
+                const isFullscreen = !!document.fullscreenElement || !!iframeDocument.fullscreenElement;
+
+                if (!isFullscreen) {
+                    if (mainContainer.requestFullscreen) {
+                        // Intenta activar pantalla completa
+                        mainContainer.requestFullscreen().catch(err => {
+                            console.warn("[setupFullscreenBehavior] Error al activar pantalla completa:", err);
+                        });
+                    } else {
+                        console.warn("[setupFullscreenBehavior] requestFullscreen no está soportado.");
+                        applyFullscreenFallback(mainContainer, sectionA, sectionB);
+                    }
                 } else {
-                    document.exitFullscreen()
-                        .then(() => {
-                            mainContainer.style.width = '';
-                            mainContainer.style.height = '';
-                            mainContainer.style.display = '';
-                            flexContainer.style.height = '';
-                            adjustSectionBHeight(sectionA, sectionB);
-                        })
-                        .catch(err => console.warn("Error al salir de pantalla completa:", err));
+                    if (document.exitFullscreen) {
+                        // Intenta salir de pantalla completa
+                        document.exitFullscreen().catch(err => {
+                            console.warn("[setupFullscreenBehavior] Error al salir de pantalla completa:", err);
+                        });
+                    } else {
+                        console.warn("[setupFullscreenBehavior] exitFullscreen no está soportado.");
+                        removeFullscreenFallback(mainContainer, sectionA, sectionB);
+                    }
                 }
+                adjustSectionBHeight(sectionA, sectionB, !isFullscreen);
+            });
+
+            window.addEventListener('resize', () => {
+                const isFullscreen = !!document.fullscreenElement || !!iframeDocument.fullscreenElement;
+                adjustSectionBHeight(sectionA, sectionB, isFullscreen);
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                const isFullscreen = !!document.fullscreenElement || !!iframeDocument.fullscreenElement;
+                if (!isFullscreen) {
+                    mainContainer.style.width = '';
+                    mainContainer.style.height = '';
+                    mainContainer.style.display = '';
+                    flexContainer.style.height = '';
+                }
+                adjustSectionBHeight(sectionA, sectionB, isFullscreen);
             });
         } else {
-            console.warn('[setupFullscreenBehavior] Elementos necesarios no encontrados. Observando DOM...');
+            console.warn("[setupFullscreenBehavior] Elementos necesarios no encontrados.");
         }
     });
 
     observer.observe(iframeDocument.body, { childList: true, subtree: true });
+}
+
+// Simulación de activación de pantalla completa con CSS
+function applyFullscreenFallback(mainContainer, sectionA, sectionB) {
+    console.log("[applyFullscreenFallback] Activando fallback de pantalla completa.");
+    mainContainer.style.position = 'fixed';
+    mainContainer.style.top = '0';
+    mainContainer.style.left = '0';
+    mainContainer.style.width = '100vw';
+    mainContainer.style.height = '100vh';
+    mainContainer.style.zIndex = '9999';
+    sectionA.style.height = '70%';
+    sectionB.style.height = '30%';
+}
+
+// Simulación dedesactivación de pantalla completa 
+function removeFullscreenFallback(mainContainer, sectionA, sectionB) {
+    console.log("[removeFullscreenFallback] Desactivando fallback de pantalla completa.");
+    mainContainer.style.position = '';
+    mainContainer.style.top = '';
+    mainContainer.style.left = '';
+    mainContainer.style.width = '';
+    mainContainer.style.height = '';
+    mainContainer.style.zIndex = '';
+    sectionA.style.height = '';
+    sectionB.style.height = '';
 }
 
 // Ajuste dinámico de la altura de la sectionA
@@ -519,20 +575,24 @@ function adjustSectionAHeightToVideo(sectionA) {
     }
 }
 
-// Ajusta la altura al cambiar el tamaño de la ventana
-function adjustSectionBHeight(sectionA, sectionB) {
+// Ajusta dinámicamente las alturas para vista móvil, escritorio y pantalla completa
+function adjustSectionBHeight(sectionA, sectionB, isFullscreen = false) {
     const isMobile = window.innerWidth <= 768;
-    const videoElement = sectionA.querySelector('video');
-    const transcriptionVisible = sectionB.style.display !== 'none';
 
-    if (isMobile && videoElement) {
-        adjustSectionAHeightToVideo(sectionA, videoElement, transcriptionVisible);
+    if (isFullscreen) {
+        sectionA.style.height = isMobile ? '70%' : '80%'; 
+        sectionB.style.height = isMobile ? '30%' : '20%'; 
+    } else if (isMobile) {
+
+        sectionA.style.height = '60%';
+        sectionB.style.height = '40%';
     } else {
-        // Ajustes para pantallas grandes
+
         const sectionAHeight = sectionA.clientHeight;
         sectionB.style.height = `${sectionAHeight}px`;
     }
 }
+
 
 //FUNCIONES DEL COURSE PRESENTATION  ------------------------------------------>
 
