@@ -75,7 +75,6 @@ function initializeInteractiveVideo(iframeDocument) {
 
 // Inicializar y personlizar el menú de subtítulos en el IV
 function setupSubtitleMenu(iframeDocument, sectionA, sectionB) {
-    console.log('[setupSubtitleMenu] Iniciando configuración del menú de subtítulos.');
 
     const controlsContainer = iframeDocument.querySelector('.h5p-controls');
     if (!controlsContainer) {
@@ -83,32 +82,23 @@ function setupSubtitleMenu(iframeDocument, sectionA, sectionB) {
         return;
     }
 
-    console.log('[setupSubtitleMenu] Contenedor de controles encontrado. Observando cambios.');
-
     const observer = new MutationObserver(() => {
-        console.log('[setupSubtitleMenu] Observando cambios en los controles.');
 
         const captionsButton = controlsContainer.querySelector('.h5p-control.h5p-captions');
         if (captionsButton) {
-            console.log('[setupSubtitleMenu] Botón de subtítulos encontrado:', captionsButton);
 
-            observer.disconnect(); // Detenemos la observación porque el botón ya está disponible
-            captionsButton.click(); // Simulamos un clic para mostrar el menú de subtítulos
-            console.log('[setupSubtitleMenu] Botón de subtítulos clickeado para activar el menú.');
+            observer.disconnect(); 
+            captionsButton.click(); 
 
-            // Intentamos encontrar el menú después de un clic
             const checkMenu = setInterval(() => {
                 const captionsMenu = iframeDocument.querySelector('.h5p-chooser.h5p-captions ol');
                 if (captionsMenu) {
-                    console.log('[setupSubtitleMenu] Menú de subtítulos encontrado:', captionsMenu);
                     clearInterval(checkMenu); // Detenemos el intervalo
                     createTranscriptionAndFontSizeOptions(iframeDocument, captionsMenu, sectionA, sectionB);
                 } else {
                     console.warn('[setupSubtitleMenu] Menú de subtítulos no encontrado. Intentando nuevamente...');
                 }
-            }, 500); // Revisamos cada 500ms para confirmar si el menú se generó.
-        } else {
-            console.warn('[setupSubtitleMenu] Botón de subtítulos no disponible aún. Continuamos observando.');
+            }, 500);
         }
     });
 
@@ -520,7 +510,6 @@ function setupFullscreenBehavior(iframeDocument, sectionA, sectionB) {
                 adjustSectionBHeight(sectionA, sectionB, isFullscreen);
             });
         } else {
-            console.warn("[setupFullscreenBehavior] Elementos necesarios no encontrados.");
         }
     });
 
