@@ -47,57 +47,150 @@ function identifyResourceType(iframeDocument) {
 }
 
 
-//FUNCIONES DEL COURSE PRESENTATION  ------------------------------------------>
+// FUNCIONES DEL COURSE PRESENTATION ------------------------------------------>
 
-// Función para inicializar el recurso CP e identificar las diapositivas
+// Inicializar el recurso CP e identificar y procesar diapositivas relevantes
 function initializeCoursePresentation(iframeDocument) {
     console.log("[initializeCoursePresentation] Inicializando Course Presentation.");
 
     const coursePresentationElement = iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-course-presentation');
-
     if (!coursePresentationElement) {
         console.warn("[initializeCoursePresentation] Contenedor del CP no encontrado.");
         return;
     }
 
+    // Identificar todas las diapositivas
     const slides = coursePresentationElement.querySelectorAll('.h5p-slide');
     const slideCount = slides.length;
 
     if (slideCount > 0) {
         console.log(`[initializeCoursePresentation] Número de diapositivas encontradas: ${slideCount}`);
 
-        // Llamar a la función para buscar diapositivas con video y VTT
-        const slideWithVTT = findSlideWithVideoAndVTT(slides);
-        if (slideWithVTT) {
-            console.log(`[initializeCoursePresentation] Diapositiva con video y VTT encontrada en el índice: ${slideWithVTT.slideIndex}`);
-        } else {
-            console.warn("[initializeCoursePresentation] No se encontraron diapositivas con video y archivo VTT.");
-        }
+        slides.forEach((slide, index) => {
+            const videoWithVTT = findVideoAndVTTInSlideForCP(slide, index);
+            if (videoWithVTT) {
+                console.log(`[initializeCoursePresentation] Diapositiva con video y VTT: Índice ${index}, Video URL: ${videoWithVTT.videoElement.src}, VTT URL: ${videoWithVTT.trackElement.src}`);
+                setupFlexboxForCPSlide(slide, videoWithVTT.videoElement, videoWithVTT.trackElement, iframeDocument);
+            }
+        });
     } else {
         console.warn("[initializeCoursePresentation] No se encontraron diapositivas en el CP.");
     }
 }
 
-// Función para identificar diapositivas con video y VTT
-function findSlideWithVideoAndVTT(slides) {
-    console.log("[findSlideWithVideoAndVTT] Buscando diapositivas con video y archivo VTT.");
 
-    // Recorrer cada diapositiva para buscar el video con VTT
-    for (let index = 0; index < slides.length; index++) {
-        const slide = slides[index];
-        const videoElement = slide.querySelector('video');
+// Buscar video y archivo VTT en una diapositiva específica del CP
+function findVideoAndVTTInSlideForCP(slide, slideIndex) {
+    console.log(`[findVideoAndVTTInSlideForCP] Analizando diapositiva en índice ${slideIndex}.`);
 
-        if (videoElement) {
-            const trackElement = videoElement.querySelector('track[src$=".vtt"]'); // Buscar un <track> con .vtt
-            if (trackElement) {
-                console.log(`[findSlideWithVideoAndVTT] Diapositiva con video y VTT encontrada en el índice: ${index}`);
-                return { slideIndex: index, slideElement: slide, videoElement, trackElement };
-            }
+    const videoElement = slide.querySelector('video');
+    if (videoElement) {
+        const trackElement = videoElement.querySelector('track[src$=".vtt"]');
+        if (trackElement) {
+            console.log(`[findVideoAndVTTInSlideForCP] Archivo VTT encontrado en la diapositiva ${slideIndex}.`);
+            return { videoElement, trackElement };
+        } else {
+            console.log(`[findVideoAndVTTInSlideForCP] No se encontró archivo VTT en la diapositiva ${slideIndex}.`);
         }
+    } else {
+        console.log(`[findVideoAndVTTInSlideForCP] No se encontró video en la diapositiva ${slideIndex}.`);
+    }
+    return null;
+}
+// Configurar contenedor flexbox para diapositivas específicas del CP con VTT
+function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocument) {
+    console.log("[setupFlexboxForCPSlide] Configurando contenedor para la diapositiva.");
+
+    // Crear contenedor flexbox
+    const flexContainer = iframeDocument.createElement('div');
+    flexContainer.classList.add('flex-container');
+
+    const sectionA = iframeDocument.createElement('div');
+    sectionA.classList.add('section-a');
+    const sectionB = iframeDocument.createElement('div');
+    sectionB.classList.add('section-b');
+
+    // Agregar video al flexbox en la sección A
+    sectionA.appendChild(videoElement);
+
+    // Procesar subtítulos en la sección B
+    if (trackElement.src) {
+        fetch(trackElement.src)
+            .then(response => response.ok ? response.text() : Promise.reject(`Error ${response.status}: ${response.statusText}`))
+            .then(vttContent => {
+                const captions = processVTTForCP(vttContent);
+                formatCaptionsForCP(sectionB, captions);
+                addTimeUpdateEventForCP(videoElement, captions, sectionB);
+            })
+            .catch(error => {
+                console.warn("[setupFlexboxForCPSlide] Error al cargar archivo VTT:", error.message);
+                sectionB.textContent = "No se pudo cargar el archivo VTT.";
+            });
+    } else {
+        console.warn("[setupFlexboxForCPSlide] Archivo VTT no encontrado.");
+        sectionB.textContent = "Archivo VTT no disponible.";
     }
 
-    console.warn("[findSlideWithVideoAndVTT] No se encontraron diapositivas con video y archivo VTT.");
-    return null;
+    // Agregar secciones al contenedor principal
+    flexContainer.appendChild(sectionA);
+    flexContainer.appendChild(sectionB);
+
+    // Reemplazar contenido de la diapositiva con el contenedor flexbox
+    slide.innerHTML = '';
+    slide.appendChild(flexContainer);
+}
+
+// Procesar archivo VTT para subtítulos del CP
+function processVTTForCP(vttContent) {
+    const lines = vttContent.split('\n');
+    const captions = [];
+    let currentCaption = null;
+
+    lines.forEach(line => {
+        if (line.includes('-->')) {
+            if (currentCaption) captions.push(currentCaption);
+            const [start, end] = line.split(' --> ');
+            currentCaption = { start: parseTimeForCP(start), end: parseTimeForCP(end), text: '' };
+        } else if (line.trim() && currentCaption) {
+            currentCaption.text += line.trim() + ' ';
+        }
+    });
+
+    if (currentCaption) captions.push(currentCaption);
+    return captions;
+}
+
+// Convertir tiempo VTT a segundos para subtítulos del CP
+function parseTimeForCP(timeString) {
+    const parts = timeString.split(':');
+    const seconds = parseFloat(parts[2]);
+    return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + seconds;
+}
+
+// Formatear subtítulos y mostrarlos en sectionB para el CP
+function formatCaptionsForCP(sectionB, captions) {
+    sectionB.innerHTML = '';
+    captions.forEach((caption, index) => {
+        const listItem = document.createElement('div');
+        listItem.classList.add('list-item');
+        listItem.textContent = caption.text;
+        sectionB.appendChild(listItem);
+    });
+}
+
+// Sincronizar subtítulos con video en el CP
+function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
+    videoElement.addEventListener('timeupdate', () => {
+        const currentTime = videoElement.currentTime;
+        captions.forEach((caption, index) => {
+            const captionElement = sectionB.children[index];
+            if (currentTime >= caption.start && currentTime <= caption.end) {
+                captionElement.classList.add('highlighted');
+            } else {
+                captionElement.classList.remove('highlighted');
+            }
+        });
+    });
 }
 
 
