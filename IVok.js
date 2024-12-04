@@ -150,7 +150,6 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
     slide.appendChild(flexContainer);
 }
 
-
 // Procesar archivo VTT para subtítulos del CP
 function processVTTForCP(vttContent) {
     const lines = vttContent.split('\n');
@@ -387,14 +386,14 @@ function addTranscriptToggleButton(iframeDocument, sectionA, sectionB) {
         font-size: 14px;
     `;
 
-    // Alternar la visibilidad de la transcripción al hacer clic
+    // Alternar visibilidad de la transcripción
     toggleButton.addEventListener('click', () => {
         const isHidden = sectionB.style.display === 'none';
         sectionB.style.display = isHidden ? 'block' : 'none';
         toggleButton.textContent = isHidden ? "Ocultar Transcripción" : "Mostrar Transcripción";
     });
 
-    // Asegurarse de que la transcripción sea visible inicialmente
+    // Mostrar inicialmente la transcripción
     sectionB.style.display = 'block';
     toggleButton.textContent = "Ocultar Transcripción";
 
@@ -899,17 +898,6 @@ function removeFullscreenFallback(mainContainer, sectionA, sectionB) {
 }
 
 // Ajuste dinámico de la altura de la sectionA
-function adjustSectionAHeightToVideo(sectionA) {
-    const videoElement = sectionA.querySelector('video');
-    if (videoElement) {
-        const videoHeight = videoElement.clientHeight || videoElement.offsetHeight;
-        sectionA.style.height = `${videoHeight}px`;
-    } else {
-        console.warn('[adjustSectionAHeightToVideo] Elemento <video> no encontrado en sectionA.');
-    }
-}
-
-// Ajusta dinámicamente las alturas para vista móvil o de escritorio
 function adjustSectionAHeightToVideo(sectionA) {
     const videoElement = sectionA.querySelector('video');
     if (videoElement) {
