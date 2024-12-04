@@ -250,7 +250,7 @@ function addSubtitleStylesForCP(iframeDocument) {
             display: flex;
             width: 100%;
             height: 100%;
-            box-sizing: border-box; /* Asegura que el contenedor considere padding y bordes */
+            //box-sizing: border-box;
         }
         .section-a {
             flex: 8;
@@ -263,17 +263,18 @@ function addSubtitleStylesForCP(iframeDocument) {
         .section-b {
             flex: 4;
             display: flex;
-            flex-direction: column; /* Disposición vertical */
+            flex-direction: column;
             height: 100%; /* Asegura que ocupe toda la altura disponible */
             overflow-y: auto;
             padding: 10px;
             box-sizing: border-box;
-            background-color: #f9f9f9; /* Fondo claro */
+            background-color: #f9f9f9;
         }
         .list-item {
+            display: flex; 
+            align-items: center;
             margin-bottom: 8px;
             padding: 6px 10px;
-            border: 1px solid #ddd;
             border-radius: 4px;
             cursor: pointer;
             background-color: #fff;
@@ -285,7 +286,20 @@ function addSubtitleStylesForCP(iframeDocument) {
         .highlighted {
             background-color: #cae4e8;
             font-weight: bold;
-            border: 1px solid #0078d4; /* Agrega un borde para resaltar más */
+        }
+        .time-column {
+            flex: 1;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #0078d4;
+            margin-right: 8px; 
+        }
+        .text-column {
+            flex: 5;
+            font-size: 14px;
+            color: #333;
+            text-align: justify;
         }
 
         /* Estilos responsivos para pantallas pequeñas */
@@ -304,10 +318,18 @@ function addSubtitleStylesForCP(iframeDocument) {
                 height: auto;
                 margin-top: 10px;
             }
+            .list-item {
+                flex-direction: column; /* Cambia a disposición vertical en pantallas pequeñas */
+                align-items: flex-start; /* Alinea los elementos al inicio */
+            }
+            .time-column {
+                margin-bottom: 4px; /* Espaciado entre tiempo y texto */
+            }
         }
     `;
     iframeDocument.head.appendChild(style);
 }
+
 
 
 
