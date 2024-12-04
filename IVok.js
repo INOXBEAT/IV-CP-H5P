@@ -176,12 +176,49 @@ function parseTimeForCP(timeString) {
 // Formatear subtítulos y mostrarlos en sectionB para el CP
 function formatCaptionsForCP(sectionB, captions) {
     sectionB.innerHTML = '';
+    const iframeDocument = sectionB.ownerDocument;
+    const videoElement = iframeDocument.querySelector('video');
+    
+    if (!videoElement) {
+        console.warn("[formatCaptionsForCP] No se encontró el elemento <video> en el iframe.");
+        return;
+    }
+
     captions.forEach((caption, index) => {
         const listItem = document.createElement('div');
         listItem.classList.add('list-item');
-        listItem.textContent = caption.text;
+        listItem.id = `caption-${index}`;
+        
+        // Crear columna de tiempo
+        const timeColumn = document.createElement('div');
+        timeColumn.classList.add('time-column');
+        timeColumn.textContent = formatTimeForCP(caption.start);
+        
+        // Crear columna de texto del subtítulo
+        const textColumn = document.createElement('div');
+        textColumn.classList.add('text-column');
+        textColumn.textContent = caption.text.replace(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-\d+)/gi, '').trim();
+        
+        // Añadir las columnas al elemento de la lista
+        listItem.append(timeColumn, textColumn);
         sectionB.appendChild(listItem);
+
+        // Añadir funcionalidad de clic para saltar al tiempo del subtítulo
+        listItem.addEventListener('click', () => {
+            console.log(`[formatCaptionsForCP] Saltando al subtítulo ${index} en el tiempo ${caption.start}`);
+            videoElement.currentTime = caption.start;
+            videoElement.play();
+        });
     });
+
+    console.log(`[formatCaptionsForCP] Total de subtítulos renderizados: ${captions.length}`);
+}
+
+// Formato de tiempo (mm:ss) para subtítulos del CP
+function formatTimeForCP(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
 // Sincronizar subtítulos con video en el CP
