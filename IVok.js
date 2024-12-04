@@ -220,16 +220,26 @@ function formatTimeForCP(seconds) {
     return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-// Sincronizar subtítulos con video en el CP
+// Sincroniza subtítulos con el video en el CP y centra el subtítulo resaltado
 function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
     videoElement.addEventListener('timeupdate', () => {
         const currentTime = videoElement.currentTime;
         captions.forEach((caption, index) => {
-            const captionElement = sectionB.children[index];
-            if (currentTime >= caption.start && currentTime <= caption.end) {
-                captionElement.classList.add('highlighted');
+            const captionElement = sectionB.querySelector(`#caption-${index}`);
+            if (captionElement) {
+                if (currentTime >= caption.start && currentTime <= caption.end) {
+                    captionElement.classList.add('highlighted');
+
+                    // Centrar el subtítulo resaltado en el contenedor
+                    sectionB.scrollTo({
+                        top: captionElement.offsetTop - sectionB.clientHeight / 2 + captionElement.clientHeight / 2,
+                        behavior: 'smooth'
+                    });
+                } else {
+                    captionElement.classList.remove('highlighted');
+                }
             } else {
-                captionElement.classList.remove('highlighted');
+                console.warn(`[addTimeUpdateEventForCP] Subtítulo con índice ${index} no encontrado.`);
             }
         });
     });
@@ -353,7 +363,6 @@ function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
         });
     });
 }
-
 
 
 
