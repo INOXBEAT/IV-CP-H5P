@@ -95,27 +95,22 @@ function findVideoAndVTTInSlideForCP(slide, slideIndex) {
 
 // Configurar contenedor flexbox para diapositivas específicas del CP con VTT
 function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocument) {
-
+    // Crear contenedor principal de flexbox
     const flexContainer = iframeDocument.createElement('div');
     flexContainer.classList.add('flex-container');
 
+    // Crear secciones A (video) y B (subtítulos)
     const sectionA = iframeDocument.createElement('div');
     sectionA.classList.add('section-a');
     const sectionB = iframeDocument.createElement('div');
     sectionB.classList.add('section-b');
 
+    // Añadir el video a la sección A
     sectionA.appendChild(videoElement);
 
-    // Estilos para sectionB
-    sectionB.style.display = 'flex';
-    sectionB.style.flexDirection = 'column';
-    sectionB.style.height = 'auto'; // Ajustable según diseño
-    sectionB.style.overflowY = 'auto';
-    sectionB.style.padding = '10px';
-    sectionB.style.boxSizing = 'border-box';
-
-    console.log(`[setupFlexboxForCPSlide] Intentando cargar archivo VTT desde: ${trackElement.src}`);
+    // Inicializar subtítulos
     if (trackElement.src) {
+        console.log(`[setupFlexboxForCPSlide] Intentando cargar archivo VTT desde: ${trackElement.src}`);
         fetch(trackElement.src)
             .then(response => {
                 if (!response.ok) {
@@ -125,9 +120,14 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
                 return response.text();
             })
             .then(vttContent => {
-                const captions = processVTTForCP(vttContent);
-                formatCaptionsForCP(sectionB, captions);
-                addTimeUpdateEventForCP(videoElement, captions, sectionB);
+                if (vttContent) {
+                    const captions = processVTTForCP(vttContent);
+                    formatCaptionsForCP(sectionB, captions);
+                    addTimeUpdateEventForCP(videoElement, captions, sectionB);
+                    console.log("[setupFlexboxForCPSlide] Subtítulos procesados y renderizados correctamente.");
+                } else {
+                    throw new Error("El archivo VTT está vacío.");
+                }
             })
             .catch(error => {
                 console.error(`[setupFlexboxForCPSlide] Error al cargar archivo VTT: ${error.message}`);
@@ -138,13 +138,18 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
         sectionB.textContent = "Archivo VTT no disponible.";
     }
 
+    // Agregar botón de mostrar/ocultar transcripción
+    addTranscriptToggleButton(iframeDocument, sectionA, sectionB);
+
+    // Añadir secciones al contenedor flexbox
     flexContainer.appendChild(sectionA);
     flexContainer.appendChild(sectionB);
 
+    // Reemplazar el contenido de la diapositiva con el nuevo contenedor flexbox
     slide.innerHTML = '';
     slide.appendChild(flexContainer);
-
 }
+
 
 // Procesar archivo VTT para subtítulos del CP
 function processVTTForCP(vttContent) {
@@ -364,6 +369,37 @@ function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
     });
 }
 
+// Crear un botón para mostrar/ocultar la transcripción
+function addTranscriptToggleButton(iframeDocument, sectionA, sectionB) {
+    const toggleButton = iframeDocument.createElement('button');
+    toggleButton.textContent = "Mostrar/Ocultar Transcripción";
+    toggleButton.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 10px;
+        cursor: pointer;
+        font-size: 14px;
+    `;
+
+    // Alternar la visibilidad de la transcripción al hacer clic
+    toggleButton.addEventListener('click', () => {
+        const isHidden = sectionB.style.display === 'none';
+        sectionB.style.display = isHidden ? 'block' : 'none';
+        toggleButton.textContent = isHidden ? "Ocultar Transcripción" : "Mostrar Transcripción";
+    });
+
+    // Asegurarse de que la transcripción sea visible inicialmente
+    sectionB.style.display = 'block';
+    toggleButton.textContent = "Ocultar Transcripción";
+
+    sectionA.appendChild(toggleButton);
+}
 
 
 
