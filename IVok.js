@@ -212,9 +212,11 @@ function addSubtitleStylesForCP(iframeDocument) {
         .flex-container {
             display: flex;
             width: 100%;
+            height: 100%;
+            box-sizing: border-box; /* Asegura que el contenedor considere padding y bordes */
         }
         .section-a {
-            width: 100%;
+            flex: 8;
             background-color: #f0f0f0;
             box-sizing: border-box;
             padding: 10px;
@@ -222,6 +224,7 @@ function addSubtitleStylesForCP(iframeDocument) {
             z-index: 1;
         }
         .section-b {
+            flex: 4;
             display: flex;
             flex-direction: column; /* Disposición vertical */
             height: 100%; /* Asegura que ocupe toda la altura disponible */
@@ -237,7 +240,7 @@ function addSubtitleStylesForCP(iframeDocument) {
             border-radius: 4px;
             cursor: pointer;
             background-color: #fff;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s ease-in-out;
         }
         .list-item:hover {
             background-color: #f0f0f0;
@@ -245,27 +248,30 @@ function addSubtitleStylesForCP(iframeDocument) {
         .highlighted {
             background-color: #cae4e8;
             font-weight: bold;
+            border: 1px solid #0078d4; /* Agrega un borde para resaltar más */
         }
 
         /* Estilos responsivos para pantallas pequeñas */
         @media (max-width: 768px) {
             .flex-container {
-                flex-direction: column;
+                flex-direction: column; /* Cambia a diseño vertical */
             }
             .section-a {
+                flex: none; /* Anula la proporción flexible */
                 width: 100%;
                 height: auto;
             }
             .section-b {
+                flex: none; /* Anula la proporción flexible */
                 width: 100%;
                 height: auto;
-                display: block;
                 margin-top: 10px;
             }
         }
     `;
     iframeDocument.head.appendChild(style);
 }
+
 
 
 
