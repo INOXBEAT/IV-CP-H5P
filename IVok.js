@@ -47,29 +47,32 @@ function identifyResourceType(iframeDocument) {
 }
 
 
+
 // FUNCIONES DEL COURSE PRESENTATION ------------------------------------------>
 
 // Inicializar el recurso CP e identificar y procesar diapositivas relevantes
 function initializeCoursePresentation(iframeDocument) {
-    console.log("[initializeCoursePresentation] Inicializando Course Presentation.");
 
+    // Agregar estilos exclusivos del CP
+    addSubtitleStylesForCP(iframeDocument);
+
+    // Seleccionar el contenedor principal del CP
     const coursePresentationElement = iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-course-presentation');
     if (!coursePresentationElement) {
         console.warn("[initializeCoursePresentation] Contenedor del CP no encontrado.");
         return;
     }
 
-    // Identificar todas las diapositivas
+    // Identificar diapositivas dentro del CP
     const slides = coursePresentationElement.querySelectorAll('.h5p-slide');
     const slideCount = slides.length;
 
     if (slideCount > 0) {
         console.log(`[initializeCoursePresentation] Número de diapositivas encontradas: ${slideCount}`);
-
         slides.forEach((slide, index) => {
             const videoWithVTT = findVideoAndVTTInSlideForCP(slide, index);
             if (videoWithVTT) {
-                console.log(`[initializeCoursePresentation] Diapositiva con video y VTT: Índice ${index}, Video URL: ${videoWithVTT.videoElement.src}, VTT URL: ${videoWithVTT.trackElement.src}`);
+                console.log(`[initializeCoursePresentation] Diapositiva con video y VTT: Índice ${index}`);
                 setupFlexboxForCPSlide(slide, videoWithVTT.videoElement, videoWithVTT.trackElement, iframeDocument);
             }
         });
@@ -78,30 +81,21 @@ function initializeCoursePresentation(iframeDocument) {
     }
 }
 
-
 // Buscar video y archivo VTT en una diapositiva específica del CP
 function findVideoAndVTTInSlideForCP(slide, slideIndex) {
-    console.log(`[findVideoAndVTTInSlideForCP] Analizando diapositiva en índice ${slideIndex}.`);
-
     const videoElement = slide.querySelector('video');
     if (videoElement) {
         const trackElement = videoElement.querySelector('track[src$=".vtt"]');
         if (trackElement) {
-            console.log(`[findVideoAndVTTInSlideForCP] Archivo VTT encontrado en la diapositiva ${slideIndex}.`);
             return { videoElement, trackElement };
-        } else {
-            console.log(`[findVideoAndVTTInSlideForCP] No se encontró archivo VTT en la diapositiva ${slideIndex}.`);
         }
-    } else {
-        console.log(`[findVideoAndVTTInSlideForCP] No se encontró video en la diapositiva ${slideIndex}.`);
     }
     return null;
 }
+
 // Configurar contenedor flexbox para diapositivas específicas del CP con VTT
 function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocument) {
-    console.log("[setupFlexboxForCPSlide] Configurando contenedor para la diapositiva.");
 
-    // Crear contenedor flexbox
     const flexContainer = iframeDocument.createElement('div');
     flexContainer.classList.add('flex-container');
 
@@ -110,20 +104,33 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
     const sectionB = iframeDocument.createElement('div');
     sectionB.classList.add('section-b');
 
-    // Agregar video al flexbox en la sección A
     sectionA.appendChild(videoElement);
 
-    // Procesar subtítulos en la sección B
+    // Estilos para sectionB
+    sectionB.style.display = 'flex';
+    sectionB.style.flexDirection = 'column';
+    sectionB.style.height = 'auto'; // Ajustable según diseño
+    sectionB.style.overflowY = 'auto';
+    sectionB.style.padding = '10px';
+    sectionB.style.boxSizing = 'border-box';
+
+    console.log(`[setupFlexboxForCPSlide] Intentando cargar archivo VTT desde: ${trackElement.src}`);
     if (trackElement.src) {
         fetch(trackElement.src)
-            .then(response => response.ok ? response.text() : Promise.reject(`Error ${response.status}: ${response.statusText}`))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                console.log("[setupFlexboxForCPSlide] Archivo VTT cargado correctamente.");
+                return response.text();
+            })
             .then(vttContent => {
                 const captions = processVTTForCP(vttContent);
                 formatCaptionsForCP(sectionB, captions);
                 addTimeUpdateEventForCP(videoElement, captions, sectionB);
             })
             .catch(error => {
-                console.warn("[setupFlexboxForCPSlide] Error al cargar archivo VTT:", error.message);
+                console.error(`[setupFlexboxForCPSlide] Error al cargar archivo VTT: ${error.message}`);
                 sectionB.textContent = "No se pudo cargar el archivo VTT.";
             });
     } else {
@@ -131,13 +138,12 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
         sectionB.textContent = "Archivo VTT no disponible.";
     }
 
-    // Agregar secciones al contenedor principal
     flexContainer.appendChild(sectionA);
     flexContainer.appendChild(sectionB);
 
-    // Reemplazar contenido de la diapositiva con el contenedor flexbox
     slide.innerHTML = '';
     slide.appendChild(flexContainer);
+
 }
 
 // Procesar archivo VTT para subtítulos del CP
@@ -193,9 +199,73 @@ function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
     });
 }
 
+// Estilos para los subtítulos del CP
+function addSubtitleStylesForCP(iframeDocument) {
+    const style = iframeDocument.createElement('style');
+    style.type = 'text/css';
+    style.innerHTML = `
+        #main-flex-container {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+        }
+        .flex-container {
+            display: flex;
+            width: 100%;
+        }
+        .section-a {
+            width: 100%;
+            background-color: #f0f0f0;
+            box-sizing: border-box;
+            padding: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        .section-b {
+            display: flex;
+            flex-direction: column; /* Disposición vertical */
+            height: 100%; /* Asegura que ocupe toda la altura disponible */
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #f9f9f9; /* Fondo claro */
+        }
+        .list-item {
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #fff;
+            transition: background-color 0.2s;
+        }
+        .list-item:hover {
+            background-color: #f0f0f0;
+        }
+        .highlighted {
+            background-color: #cae4e8;
+            font-weight: bold;
+        }
 
-
-
+        /* Estilos responsivos para pantallas pequeñas */
+        @media (max-width: 768px) {
+            .flex-container {
+                flex-direction: column;
+            }
+            .section-a {
+                width: 100%;
+                height: auto;
+            }
+            .section-b {
+                width: 100%;
+                height: auto;
+                display: block;
+                margin-top: 10px;
+            }
+        }
+    `;
+    iframeDocument.head.appendChild(style);
+}
 
 
 
@@ -417,7 +487,6 @@ function toggleTranscriptionVisibility(sectionA, sectionB, transcriptionOption) 
     transcriptionOption.setAttribute('aria-checked', isVisible.toString());
     console.log(`[toggleTranscriptionVisibility] Transcripción ${isVisible ? 'activada' : 'desactivada'}.`);
 }
-
 // Ajusta el tamaño de la fuente en la sección de transcripción
 function adjustFontSize(size, sectionB, limit) {
     if (size >= 10 && size <= 34) {
@@ -721,14 +790,12 @@ function adjustSectionBHeight(sectionA, sectionB, isFullscreen = false) {
     const isMobile = window.innerWidth <= 768;
 
     if (isFullscreen) {
-        sectionA.style.height = isMobile ? '70%' : '80%'; 
-        sectionB.style.height = isMobile ? '30%' : '20%'; 
+        sectionA.style.height = isMobile ? '70%' : '80%';
+        sectionB.style.height = isMobile ? '30%' : '20%';
     } else if (isMobile) {
-
         sectionA.style.height = '60%';
         sectionB.style.height = '40%';
     } else {
-
         const sectionAHeight = sectionA.clientHeight;
         sectionB.style.height = `${sectionAHeight}px`;
     }
