@@ -369,21 +369,25 @@ function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
 }
 
 // Crear un botón para mostrar/ocultar la transcripción
+// Crear un botón para mostrar/ocultar la transcripción en la barra de pie de página
 function addTranscriptToggleButton(iframeDocument, sectionA, sectionB) {
+    const footerRight = iframeDocument.querySelector('.h5p-footer-right-adjusted');
+    if (!footerRight) {
+        console.warn("[addTranscriptToggleButton] No se encontró el contenedor '.h5p-footer-right-adjusted'.");
+        return;
+    }
+
     const toggleButton = iframeDocument.createElement('button');
     toggleButton.textContent = "Mostrar/Ocultar Transcripción";
     toggleButton.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
         background-color: #0078d4;
         color: white;
         border: none;
         border-radius: 4px;
-        padding: 10px;
+        padding: 8px 12px;
         cursor: pointer;
         font-size: 14px;
+        margin-left: 8px;
     `;
 
     // Alternar visibilidad de la transcripción
@@ -397,7 +401,8 @@ function addTranscriptToggleButton(iframeDocument, sectionA, sectionB) {
     sectionB.style.display = 'block';
     toggleButton.textContent = "Ocultar Transcripción";
 
-    sectionA.appendChild(toggleButton);
+    // Añadir el botón al pie de página
+    footerRight.appendChild(toggleButton);
 }
 
 
