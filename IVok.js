@@ -369,7 +369,6 @@ function addTimeUpdateEventForCP(videoElement, captions, sectionB) {
 }
 
 // Crear un botón para mostrar/ocultar la transcripción
-// Crear un botón para mostrar/ocultar la transcripción en la barra de pie de página
 function addTranscriptToggleButton(iframeDocument, sectionA, sectionB) {
     const footerRight = iframeDocument.querySelector('.h5p-footer-right-adjusted');
     if (!footerRight) {
@@ -404,6 +403,179 @@ function addTranscriptToggleButton(iframeDocument, sectionA, sectionB) {
     // Añadir el botón al pie de página
     footerRight.appendChild(toggleButton);
 }
+
+// Crear o actualizar el botón de transcripción y controles de tamaño de fuente
+function createOrUpdateTranscriptControls(iframeDocument) {
+    console.log("[createOrUpdateTranscriptControls] Iniciando creación de controles.");
+    const footerRight = iframeDocument.querySelector('.h5p-footer-right-adjusted');
+    if (!footerRight) {
+        console.warn("[createOrUpdateTranscriptControls] No se encontró el contenedor '.h5p-footer-right-adjusted'.");
+        return null;
+    }
+
+    let toggleButton = footerRight.querySelector('#transcript-toggle-button');
+    if (!toggleButton) {
+        console.log("[createOrUpdateTranscriptControls] Creando botón de transcripción.");
+        toggleButton = iframeDocument.createElement('button');
+        toggleButton.id = 'transcript-toggle-button';
+        toggleButton.textContent = "Mostrar/Ocultar Transcripción";
+        toggleButton.style.cssText = `
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+        `;
+        toggleButton.disabled = true; // Deshabilitado por defecto
+        footerRight.appendChild(toggleButton);
+    } else {
+        console.log("[createOrUpdateTranscriptControls] Botón de transcripción ya existe.");
+    }
+
+    let fontControls = footerRight.querySelector('.font-controls');
+    if (!fontControls) {
+        console.log("[createOrUpdateTranscriptControls] Creando controles de tamaño de fuente.");
+        fontControls = iframeDocument.createElement('div');
+        fontControls.classList.add('font-controls');
+        fontControls.style.cssText = 'display: inline-flex; align-items: center; margin-left: 8px;';
+
+        const increaseFontButton = iframeDocument.createElement('button');
+        increaseFontButton.textContent = "+";
+        increaseFontButton.style.cssText = `
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 4px;
+        `;
+
+        const decreaseFontButton = iframeDocument.createElement('button');
+        decreaseFontButton.textContent = "-";
+        decreaseFontButton.style.cssText = `
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+
+        fontControls.appendChild(increaseFontButton);
+        fontControls.appendChild(decreaseFontButton);
+        footerRight.appendChild(fontControls);
+
+        // Eventos de ajuste de tamaño de fuente
+        let currentFontSize = 16; // Tamaño inicial
+        const minFontSize = 10;
+        const maxFontSize = 34;
+
+        const adjustFontSize = (increment) => {
+            console.log(`[adjustFontSize] Ajustando tamaño de fuente: Incremento: ${increment}`);
+            currentFontSize = Math.max(minFontSize, Math.min(maxFontSize, currentFontSize + increment));
+            const sectionB = iframeDocument.querySelector('.section-b');
+            if (sectionB) {
+                sectionB.style.fontSize = `${currentFontSize}px`;
+                sectionB.querySelectorAll('.time-column, .text-column').forEach((element) => {
+                    element.style.fontSize = `${currentFontSize}px`;
+                });
+                console.log(`[adjustFontSize] Nuevo tamaño de fuente: ${currentFontSize}px.`);
+            } else {
+                console.warn("[adjustFontSize] No se encontró el contenedor de subtítulos '.section-b'.");
+            }
+        };
+
+        increaseFontButton.addEventListener('click', () => adjustFontSize(2));
+        decreaseFontButton.addEventListener('click', () => adjustFontSize(-2));
+    } else {
+        console.log("[createOrUpdateTranscriptControls] Controles de tamaño de fuente ya existen.");
+    }
+
+    return toggleButton;
+}
+
+// Gestionar el estado del botón al cambiar de diapositiva
+function updateTranscriptButtonStateWithControls(iframeDocument) {
+    console.log("[updateTranscriptButtonStateWithControls] Iniciando actualización del botón.");
+    const coursePresentation = iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-course-presentation');
+    const toggleButton = iframeDocument.querySelector('#transcript-toggle-button');
+    if (!coursePresentation) {
+        console.warn("[updateTranscriptButtonStateWithControls] Contenedor de presentación no encontrado.");
+        return;
+    }
+    if (!toggleButton) {
+        console.warn("[updateTranscriptButtonStateWithControls] Botón de transcripción no encontrado.");
+        return;
+    }
+
+    // Detectar cambios de diapositiva
+    const observer = new MutationObserver(() => {
+        const currentSlide = coursePresentation.querySelector('.h5p-slide.h5p-current-slide');
+        if (currentSlide) {
+            console.log("[updateTranscriptButtonStateWithControls] Detectando cambio de diapositiva.");
+            const hasVTT = currentSlide.querySelector('track[src$=".vtt"]') !== null;
+
+            // Habilitar o deshabilitar el botón
+            toggleButton.disabled = !hasVTT;
+            toggleButton.style.display = hasVTT ? 'inline-block' : 'none';
+            console.log(`[updateTranscriptButtonStateWithControls] Botón ${(hasVTT ? 'habilitado' : 'deshabilitado')}.`);
+
+            if (hasVTT) {
+                const sectionB = iframeDocument.querySelector('.section-b');
+                toggleButton.onclick = () => {
+                    console.log("[updateTranscriptButtonStateWithControls] Botón de transcripción clicado.");
+                    const isHidden = sectionB && sectionB.style.display === 'none';
+                    if (sectionB) sectionB.style.display = isHidden ? 'block' : 'none';
+                    toggleButton.textContent = isHidden ? "Ocultar Transcripción" : "Mostrar Transcripción";
+                };
+            }
+        }
+    });
+
+    observer.observe(coursePresentation, { childList: true, subtree: true });
+    console.log("[updateTranscriptButtonStateWithControls] Observador de cambios configurado.");
+}
+
+// Inicializar el recurso Course Presentation
+function initializeCoursePresentationWithControls(iframeDocument) {
+    console.log("[initializeCoursePresentationWithControls] Inicializando presentación de curso.");
+    // Agregar estilos
+    addSubtitleStylesForCP(iframeDocument);
+
+    const coursePresentationElement = iframeDocument.querySelector('.h5p-container.h5p-standalone.h5p-course-presentation');
+    if (!coursePresentationElement) {
+        console.warn("[initializeCoursePresentationWithControls] Contenedor del CP no encontrado.");
+        return;
+    }
+
+    // Procesar diapositivas
+    const slides = coursePresentationElement.querySelectorAll('.h5p-slide');
+    slides.forEach((slide, index) => {
+        console.log(`[initializeCoursePresentationWithControls] Procesando diapositiva: Índice ${index}`);
+        const videoWithVTT = findVideoAndVTTInSlideForCP(slide, index);
+        slide.setAttribute('data-has-vtt', videoWithVTT ? 'true' : 'false');
+
+        if (videoWithVTT) {
+            console.log(`[initializeCoursePresentationWithControls] Diapositiva ${index} contiene subtítulos VTT.`);
+            setupFlexboxForCPSlide(slide, videoWithVTT.videoElement, videoWithVTT.trackElement, iframeDocument);
+        } else {
+            console.log(`[initializeCoursePresentationWithControls] Diapositiva ${index} sin subtítulos.`);
+        }
+    });
+
+    // Crear controles de transcripción y tamaño de fuente
+    createOrUpdateTranscriptControls(iframeDocument);
+    updateTranscriptButtonStateWithControls(iframeDocument);
+}
+
+
+
 
 
 
