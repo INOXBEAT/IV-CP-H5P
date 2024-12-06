@@ -110,13 +110,11 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
 
     // Inicializar subtítulos
     if (trackElement.src) {
-        console.log(`[setupFlexboxForCPSlide] Intentando cargar archivo VTT desde: ${trackElement.src}`);
         fetch(trackElement.src)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                console.log("[setupFlexboxForCPSlide] Archivo VTT cargado correctamente.");
                 return response.text();
             })
             .then(vttContent => {
@@ -124,7 +122,6 @@ function setupFlexboxForCPSlide(slide, videoElement, trackElement, iframeDocumen
                     const captions = processVTTForCP(vttContent);
                     formatCaptionsForCP(sectionB, captions);
                     addTimeUpdateEventForCP(videoElement, captions, sectionB);
-                    console.log("[setupFlexboxForCPSlide] Subtítulos procesados y renderizados correctamente.");
                 } else {
                     throw new Error("El archivo VTT está vacío.");
                 }
@@ -213,8 +210,6 @@ function formatCaptionsForCP(sectionB, captions) {
             videoElement.play();
         });
     });
-
-    console.log(`[formatCaptionsForCP] Total de subtítulos renderizados: ${captions.length}`);
 }
 
 // Formato de tiempo (mm:ss) para subtítulos del CP
